@@ -1,0 +1,8 @@
+# Python related.
+*.egg-info
+__pycache__/
+
+# Vim related.
+*.un~
+*.swp~
+
