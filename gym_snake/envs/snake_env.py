@@ -1,14 +1,10 @@
 """OpenAI Gym environment which runs the game of Snake.
 
-Example usage:
-  env = gym.make('Snake-v0')
-  env.reset()
-  while True:
-    _, _, _, done, _ = env.step(env.action_space.sample())
-    env.reset()
-"""
+done, _ = env.step(env.action_space.sample())
+    env.reset() """
 
 import sys
+import time
 
 import gym
 from gym import logger
@@ -51,33 +47,55 @@ class Game(object):
             snake.append((x, y))
         return snake
 
+    def _generate_apple(self):
+        board = self._generate_board_with_snake_only()
+        empty = np.where(board == 0)
+        x = np.random.choice(empty[0])
+        y = np.random.choice(empty[1])
+        return x, y
+
+    def generate_board(self):
+        """Returns a snapshot of the board in the current step of the game.
+
+        In this snapshot, 0 represent an empty square, 1 represents the snake,
+        and 2 represents the apple.
+        """
+        board = self._generate_board_with_snake_only()
+        board[self.apple[1], self.apple[0]] = 3
+        return board
+
+    def _generate_board_with_snake_only(self):
+        board = np.zeros(self._dims)
+        for x, y in self.snake[:-1]:
+            # Ignore the dummy piece.
+            if (x, y) < (0, 0):
+                continue
+            board[y, x] = 1
+        head = self.snake[-1]
+        board[head[1], head[0]] = 2
+        return board
+
     def step(self):
         """Execute one step of the game."""
         new_head = tuple(np.add(self.snake[-1], self.dir) % self._dims)
         if new_head in self.snake:
-            return True
+            return True, False
 
         self.snake = self.snake[1:]
         self.snake.append(new_head)
 
+        ate_apple = False
         if new_head == self.apple:
-            # Append the new snake piece outside the game screen. It will be
-            # correctly placed on the next call to #update().
+            ate_apple = True
+            # Append a new dummy snake piece outside the game screen. It will
+            # be correctly placed on the next call to #update().
             self.apple = self._generate_apple()
             self.snake = [(-100, -100)] + self.snake
 
-        return False
-
-    def _generate_apple(self):
-        board = np.zeros(self._dims)
-        for x, y in self.snake:
-            board[x, y] = 1
-        empty = np.where(board == 0)
-        x = np.random.choice(empty[0])
-        y = np.random.choice(empty[0])
-        return x, y
+        return False, ate_apple
 
 
+_FPS_TIME = 1/30
 _WHITE = (255, 255, 255)
 _RED = (255, 0, 0)
 _GREEN = (0, 255, 0)
@@ -86,7 +104,7 @@ _GREEN = (0, 255, 0)
 class SnakeEnv(gym.Env):
     """An environment which runs the game of Snake."""
 
-    metadata = {'render.modes': ['human']}
+    metadata = {'render.modes': ['human', 'train', 'test']}
 
     def __init__(self):
         """Constructor."""
@@ -94,7 +112,7 @@ class SnakeEnv(gym.Env):
         self._game = None
         self._done = False
 
-        self._dims = (20, 20)
+        self._dims = (10, 10)
         self._px_size = 16
 
         self.action_space = spaces.Discrete(3)
@@ -118,7 +136,7 @@ class SnakeEnv(gym.Env):
         """
         if self._done:
             logger.warn(('The environment has reached a terminal state and '
-                         'should be reset (by calling env.reset()'))
+                         'should be reset (by calling env.reset())'))
             return None
 
         if not self._game:
@@ -130,16 +148,31 @@ class SnakeEnv(gym.Env):
         new_direction = (_DIRS.index(self._game.dir) + action) % len(_DIRS)
         self._game.dir = _DIRS[new_direction]
 
-        self._done = self._game.step()
-        return (None,
-                len(self._game.snake),
+        self._done, ate_apple = self._game.step()
+        reward = 0
+        if ate_apple:
+            assert not self._done
+            reward = 10
+        if self._done:
+            assert not ate_apple
+            reward = -100
+        return (self._game.generate_board(),
+                reward,
                 self._done,
                 {})
 
     # TODO(ehotaj): remove close as an argument here and override the close
     # method of gym.Env instead.
     def render(self, mode='human', close=False):
-        """Only human mode is currently supported."""
+        """Renders a single frame.
+        
+        If mode is 'train', nothing is rendered.
+        If mode is 'human', game is rendered at 30 fps.
+        """
+        if mode == 'train':
+            return
+
+        start_time = time.time()
         if not self._screen and not close:
             pygame.init()
             self._screen = pygame.display.set_mode(np.multiply(self._dims,
@@ -168,3 +201,7 @@ class SnakeEnv(gym.Env):
              self._game.apple[1] * self._px_size, self._px_size,
              self._px_size))
         pygame.display.flip()
+
+        delta = time.time() - start_time
+        if mode == 'human' and _FPS_TIME - delta > 0:
+            time.sleep(_FPS_TIME - delta)
