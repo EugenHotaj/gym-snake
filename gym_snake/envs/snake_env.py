@@ -32,7 +32,7 @@ class Game(object):
         """
         self._dims = dims
         self.snake = self._generate_initial_snake(size=snake_size)
-        self.dir = (0, -1)
+        self.dir = (1, 0)
         self.apple = self._generate_apple()
 
     def _generate_initial_snake(self, size=5):
@@ -50,7 +50,7 @@ class Game(object):
     def _generate_apple(self):
         board = self._generate_board_with_snake_only()
         empty = np.where(board == 0)
-        index = np.random.randint(len(empty))
+        index = np.random.randint(len(empty[0]))
         return empty[1][index], empty[0][index]
 
     def generate_board(self):
@@ -123,6 +123,11 @@ class SnakeEnv(gym.Env):
         self._game = Game(dims=self._dims)
         self._done = False
 
+        return (self._game.generate_board(),
+                0,
+                False,
+                {})
+
     def step(self, action):
         """Advances the environment by 1 step.
 
@@ -151,10 +156,10 @@ class SnakeEnv(gym.Env):
         reward = 0
         if ate_apple:
             assert not self._done
-            reward = 10
+            reward = 25
         if self._done:
             assert not ate_apple
-            reward = -100
+            reward = -10
         return (self._game.generate_board(),
                 reward,
                 self._done,
