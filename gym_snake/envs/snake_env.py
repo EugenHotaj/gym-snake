@@ -50,9 +50,8 @@ class Game(object):
     def _generate_apple(self):
         board = self._generate_board_with_snake_only()
         empty = np.where(board == 0)
-        x = np.random.choice(empty[0])
-        y = np.random.choice(empty[1])
-        return x, y
+        index = np.random.randint(len(empty))
+        return empty[1][index], empty[0][index]
 
     def generate_board(self):
         """Returns a snapshot of the board in the current step of the game.
