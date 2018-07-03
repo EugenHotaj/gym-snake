@@ -110,23 +110,27 @@ class SnakeEnv(gym.Env):
         self._screen = None
         self._game = None
         self._done = False
+        self._steps = 0
 
         self._dims = (10, 10)
         self._px_size = 16
 
         self.action_space = spaces.Discrete(3)
 
-        self.reset()
+        self._reset()
 
     def reset(self):
         """Reset the game."""
-        self._game = Game(dims=self._dims)
-        self._done = False
-
+        self._reset()
         return (self._game.generate_board(),
                 0,
                 False,
                 {})
+
+    def _reset(self):
+        self._game = Game(dims=self._dims)
+        self._done = False
+        self._steps = 0
 
     def step(self, action):
         """Advances the environment by 1 step.
@@ -156,10 +160,13 @@ class SnakeEnv(gym.Env):
         reward = 0
         if ate_apple:
             assert not self._done
-            reward = 25
+            reward = 1
+            self._steps = 0
+        if self._steps >= 100:
+            self.done = True
         if self._done:
             assert not ate_apple
-            reward = -10
+            reward = -1
         return (self._game.generate_board(),
                 reward,
                 self._done,
