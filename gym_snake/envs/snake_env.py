@@ -110,7 +110,6 @@ class SnakeEnv(gym.Env):
         self._screen = None
         self._game = None
         self._done = False
-        self._steps = 0
 
         self._dims = (10, 10)
         self._px_size = 16
@@ -130,7 +129,6 @@ class SnakeEnv(gym.Env):
     def _reset(self):
         self._game = Game(dims=self._dims)
         self._done = False
-        self._steps = 0
 
     def step(self, action):
         """Advances the environment by 1 step.
@@ -159,14 +157,9 @@ class SnakeEnv(gym.Env):
         self._done, ate_apple = self._game.step()
         reward = 0
         if ate_apple:
-            assert not self._done
-            reward = 1
-            self._steps = 0
-        if self._steps >= 100:
-            self.done = True
+            reward = 1  # 1 point for eating an apple
         if self._done:
-            assert not ate_apple
-            reward = -1
+            reward = -100  # -100 points for dying
         return (self._game.generate_board(),
                 reward,
                 self._done,
@@ -176,7 +169,7 @@ class SnakeEnv(gym.Env):
     # method of gym.Env instead.
     def render(self, mode='human', close=False):
         """Renders a single frame.
-        
+
         If mode is 'train', nothing is rendered.
         If mode is 'human', game is rendered at 30 fps.
         """
